@@ -53,7 +53,7 @@ def create_meta_data(config_data, system_name: str, call_data: dict, audio_wav_p
         "apiKey": "",
         "callAudioFormat": "wav",
         "recordedCall": {
-            "callText": "",
+            "callText": None,
             "talkGroupInfo": {},
             "startTime": "",
             "callDuration": 0,
