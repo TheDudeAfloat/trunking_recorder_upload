@@ -18,6 +18,28 @@ def get_call_targets(call_data: dict):
     call_targets['targettag'] = call_data.get('talkgroup_tag')
     return call_targets
 
+def get_call_srcs(call_data: dict):
+    """Return a comma-separated string of unique src values in order."""
+    seen = set()
+    result = []
+    for entry in call_data.get('srcList', []):
+        src = entry.get('src')
+        if src != -1 and src not in seen:
+            seen.add(src)
+            result.append(str(src))  # Convert to string here
+    return ",".join(result)
+
+def get_call_tags(call_data: dict):
+    """Return a comma-separated string of unique non-empty tag values in order."""
+    seen = set()
+    result = []
+    for entry in call_data.get('srcList', []):
+        tag = entry.get('tag', '').strip()
+        if tag and tag not in seen:
+            seen.add(tag)
+            result.append(tag)
+    return ",".join(result)
+
 def get_talkgroup_info(system_name, call_data: dict):
     default_talkgroup_data = {
             "callTargets": [],
@@ -38,9 +60,11 @@ def get_talkgroup_info(system_name, call_data: dict):
     }
     talkgroup_info = default_talkgroup_data.copy()
     talkgroup_info['callTargets'].append(get_call_targets(call_data))
-    talkgroup_info['receiver'] = f"Trunk-Recorder {system_name}"
+    talkgroup_info['receiver'] = f"tr-{system_name}"
     talkgroup_info['frequency'] = call_data.get('freq')
     talkgroup_info['systemid'] = system_name
+    talkgroup_info['sourceid'] = get_call_srcs(call_data)
+    talkgroup_info['sourcelabel'] = get_call_tags(call_data)
     return talkgroup_info
 
 def get_iso_time(epoch_timestamp: int):
