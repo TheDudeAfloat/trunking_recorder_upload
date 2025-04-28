@@ -128,3 +128,61 @@ def upload_audio(config_data, call_id: str, audio_wav_path: str):
             module_logger.error(f"Response: {r.text}")
     except Exception as e:
         module_logger.error(f"Unexpected error when uploading audio: {e}")
+
+def create_meta_data_mp3(config_data, system_name: str, call_data: dict, audio_mp3_path: str):
+    default_metadata = {
+        "apiAuthID": "",
+        "apiKey": "",
+        "callAudioFormat": "mp3",
+        "recordedCall": {
+            "callText": None,
+            "talkGroupInfo": {},
+            "startTime": "",
+            "callDuration": 0,
+            "startPositionSec": "00:00:00"
+        }
+    }
+
+    meta_data = default_metadata.copy()
+    meta_data['apiAuthID'] = config_data.get('apiAuthID')
+    meta_data['apiKey'] = config_data.get('apiKey')
+    meta_data['recordedCall']['talkGroupInfo'] = get_talkgroup_info(system_name, call_data)
+    meta_data['recordedCall']['startTime'] = get_iso_time(call_data.get('start_time'))
+    meta_data['recordedCall']['callDuration'] = call_data.get('call_length')
+    return meta_data
+
+def upload_metadata_mp3(config_data, system_name: str, call_data: dict, audio_mp3_path: str):
+    metadata = create_meta_data_mp3(config_data, system_name, call_data, audio_mp3_path)
+    module_logger.debug(metadata)
+    metadata_url_path = config_data.get('api_url') + "/api/callupload"
+    try:
+        headers = {'Content-Type': 'application/json'}
+        r = requests.post(metadata_url_path, headers=headers, json=metadata)
+
+        if r.status_code == 200:
+            response = r.json()
+            module_logger.info(f"Call metadata uploaded: {response.get('CallAudioID')}")
+            return response.get("CallAudioID")
+        else:
+            return None
+    except Exception as e:
+        module_logger.error(f"Unexpected error while uploading call metadata: {e}")
+        return None
+
+def upload_audio_mp3(config_data, call_id: str, audio_mp3_path: str):
+    audio_url_path = config_data.get('api_url') + "/api/callaudioupload/" + call_id
+    module_logger.debug(audio_url_path)
+    try:
+        file_size = os.path.getsize(audio_mp3_path)
+
+        headers = {'Content-Type': 'audio/mp3', 'Content-Length': str(file_size)}
+        with open(audio_mp3_path, 'rb') as audio_file:
+            r = requests.post(audio_url_path, headers=headers, data=audio_file)
+
+        if r.status_code == 200:
+            module_logger.info("Audio file Upload successful!")
+        else:
+            module_logger.error(f"Upload failed with status code: {r.status_code}")
+            module_logger.error(f"Response: {r.text}")
+    except Exception as e:
+        module_logger.error(f"Unexpected error when uploading audio: {e}")
