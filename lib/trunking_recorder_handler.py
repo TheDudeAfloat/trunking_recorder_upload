@@ -175,7 +175,7 @@ def upload_audio_mp3(config_data, call_id: str, audio_mp3_path: str):
     try:
         file_size = os.path.getsize(audio_mp3_path)
 
-        headers = {'Content-Type': 'audio/mp3', 'Content-Length': str(file_size)}
+        headers = {'Content-Type': 'audio/mpeg', 'Content-Length': str(file_size)}
         with open(audio_mp3_path, 'rb') as audio_file:
             r = requests.post(audio_url_path, headers=headers, data=audio_file)
 
