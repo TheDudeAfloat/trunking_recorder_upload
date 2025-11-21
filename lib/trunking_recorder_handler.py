@@ -1,7 +1,8 @@
 import datetime
 import logging
 import os
-
+import json
+from typing import Optional
 import requests
 
 module_logger = logging.getLogger('trunk_recorder_upload.trunking_recorder_handler')
@@ -71,6 +72,42 @@ def get_iso_time(epoch_timestamp: int):
     dt = datetime.datetime.fromtimestamp(epoch_timestamp, datetime.timezone.utc)
     return dt.isoformat(timespec='microseconds').replace('+00:00', 'Z')
 
+def load_local_transcript_for_audio(audio_path: str) -> Optional[str]:
+    """
+    Look for a sidecar STT JSON file next to the audio file:
+
+        /path/to/call.wav -> /path/to/call.stt.json
+        /path/to/call.mp3 -> /path/to/call.stt.json
+
+    Expected content:
+        { "text": "transcribed text..." }
+
+    Returns the text if present and non-empty, otherwise None.
+    """
+    if not audio_path:
+        return None
+
+    base, _ = os.path.splitext(audio_path)
+    stt_path = base + ".stt.json"
+
+    if not os.path.exists(stt_path):
+        return None
+
+    try:
+        with open(stt_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        text = data.get("text")
+        if isinstance(text, str):
+            text = text.strip()
+            if text:
+                return text
+    except Exception as e:
+        # Non-fatal; just log and fall back
+        print(f"Warning: failed to read STT transcript from {stt_path}: {e}")
+
+    return None
+
 def create_meta_data(config_data, system_name: str, call_data: dict, audio_wav_path: str):
     default_metadata = {
         "apiAuthID": "",
@@ -91,6 +128,16 @@ def create_meta_data(config_data, system_name: str, call_data: dict, audio_wav_p
     meta_data['recordedCall']['talkGroupInfo'] = get_talkgroup_info(system_name, call_data)
     meta_data['recordedCall']['startTime'] = get_iso_time(call_data.get('start_time'))
     meta_data['recordedCall']['callDuration'] = call_data.get('call_length')
+    
+    # Prefer local STT transcript sidecar if it exists
+    transcript_text = load_local_transcript_for_audio(audio_wav_path)
+    if transcript_text:
+        meta_data["recordedCall"]["callText"] = transcript_text
+    else:
+        # leave as None (or whatever you want as default)
+        meta_data["recordedCall"]["callText"] = meta_data["recordedCall"].get("callText", None)
+
+
     return meta_data
 
 def upload_metadata(config_data, system_name: str, call_data: dict, audio_wav_path: str):
@@ -149,6 +196,15 @@ def create_meta_data_mp3(config_data, system_name: str, call_data: dict, audio_m
     meta_data['recordedCall']['talkGroupInfo'] = get_talkgroup_info(system_name, call_data)
     meta_data['recordedCall']['startTime'] = get_iso_time(call_data.get('start_time'))
     meta_data['recordedCall']['callDuration'] = call_data.get('call_length')
+    
+        # Prefer local STT transcript sidecar if it exists
+    transcript_text = load_local_transcript_for_audio(audio_mp3_path)
+    if transcript_text:
+        meta_data["recordedCall"]["callText"] = transcript_text
+    else:
+        # leave as None (or whatever you want as default)
+        meta_data["recordedCall"]["callText"] = meta_data["recordedCall"].get("callText", None)
+
     return meta_data
 
 def upload_metadata_mp3(config_data, system_name: str, call_data: dict, audio_mp3_path: str):
